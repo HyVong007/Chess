@@ -1,77 +1,45 @@
 ﻿using System;
 using Chess;
 using Chess.KingChess;
+using System.Threading.Tasks;
 
 
 public class Test
 {
 	static void Main()
 	{
-		Console.BackgroundColor = ConsoleColor.DarkGreen;
-		Console.Clear();
-
-		//var b = new Board(new (Color color, PieceName piece)?[][]
-		//{
-		//	// A
-		//	new (Color color, PieceName piece)?[]{null, null, null, null, null, null, null, null},
-
-		//	// B
-		//	new (Color color, PieceName piece)?[]{null, null, null, null, null, null, null, null},
-
-		//	// C
-		//	new (Color color, PieceName piece)?[]{null, null, null, null, null, null, null, null},
-
-		//	// D
-		//	new (Color color, PieceName piece)?[]{null, null, null, null, null, null, null, null},
-
-		//	// E
-		//	new (Color color, PieceName piece)?[]{null, null, null, null, null, null, null, null},
-
-		//	// F
-		//	new (Color color, PieceName piece)?[]{null, null, null, null, null, null, null, null},
-
-		//	// G
-		//	new (Color color, PieceName piece)?[]{null, null, null, null, null, null, null, null},
-
-		//	// H
-		//	new (Color color, PieceName piece)?[]{null, null, null, null, null, null, null, null},
-		//});
-		//b.Print();
+		var b = new Board(Hehe);
+		b.Print();
 
 
+		//var FILES = new char[] { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' };
+		//for (int file = 0; file < 8; ++file)
+		//	for (int rank = 0; rank < 8; ++rank)
+		//	{
+		//		var mailBox = new (Color, PieceName)?[8][];
+		//		for (int x = 0; x < 8; ++x) mailBox[x] = new (Color, PieceName)?[8];
+		//		mailBox[file][rank] = (Color.White, PieceName.King);
+		//		var b = new Board(mailBox);
+		//		Console.WriteLine("================================================");
+		//		Console.WriteLine($"{FILES[file]}{rank + 1}");
+		//		b.FindPseudoLegalMoves(Color.White, PieceName.King).PrintColorBinary8x8();
+		//		Console.WriteLine("\n");
+		//	}
 
-
-
-
-		//Console.WriteLine("\nFindPseudoLegalMoves(Color.White, PieceName.Pawn)=\n");
-		//b.FindPseudoLegalMoves(Color.White, PieceName.Pawn).PrintColorBinary8x8();
-
-
-		ulong u = 0b1000_1011_0101_0010UL;
-		u.PrintColorBinary();
-		u.Reverse(4, 11);
-		u.PrintColorBinary();
 	}
 
 
-
-
-	static void Ham(ref int a)
+	static async void Ham(Board b)
 	{
-		int b = a;
-		b = 3;
+		var d = await Board.MoveData.New(b, (0, 1), (0, 2));
+		Console.WriteLine(d);
 	}
 
 
-
-
-
-
-
-
-
-
-
+	static async Task<PieceName?> Hehe(Color color)
+	{
+		return null;
+	}
 
 
 	/// <summary>
@@ -90,8 +58,8 @@ public class Test
 		#region Input a[x][y] = ?
 
 
-		a[0][0] = 1;
-		a[1][0] = 1;
+		for (int x = 6; x < 8; ++x)
+			for (int y = 0; y < 8; ++y) a[x][y] = 1;
 
 
 

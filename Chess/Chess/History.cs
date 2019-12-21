@@ -1,20 +1,23 @@
-﻿//
-// LinkedList<T> rất chậm so với List<T>, và chậm hơn nữa với T[].
-// Cần tối ưu
-//
-//
-
-
-using System;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 
 
 namespace Chess
 {
+
+	// Tương lai sửa thành class TurnManager
+
+
+
+
+
+
 	/// <summary>
 	/// Lưu lại lịch sử các <see cref="GameAction"/> được thực hiện khi người chơi chơi game và cho phép Undo/ Redo.
 	/// <para>GameState chỉ được thay đổi thông qua Play/ Undo/ Redo.</para>
 	/// </summary>
+	/// <typeparam name="T">Kiểu dữ liệu của <see cref="GameAction.data"/> của từng loại game.</typeparam>
 	public sealed class History<T> where T : struct
 	{
 		private readonly int MAX_ACTION_COUNT;
@@ -125,6 +128,53 @@ namespace Chess
 				if (recentActions.First.Value.turn == undoneActions.Last?.Value.turn) undoneActions.RemoveLast();
 				recentActions.RemoveFirst();
 			}
+		}
+
+
+
+		private sealed class Storage : IEnumerable<GameAction>
+		{
+			private readonly GameAction[] array;
+
+
+			public Storage(int count)
+			{
+				array = new GameAction[count];
+			}
+
+
+			public GameAction this[int index] => throw new NotImplementedException();
+
+			public IEnumerator<GameAction> GetEnumerator()
+			{
+				throw new NotImplementedException();
+			}
+
+			IEnumerator IEnumerable.GetEnumerator()
+			{
+				throw new NotImplementedException();
+			}
+
+
+			public int Count => throw new NotImplementedException();
+
+
+			public GameAction? First => throw new NotImplementedException();
+
+
+			public GameAction AddFirst(GameAction action) => throw new NotImplementedException();
+
+
+			public void RemoveFirst() => throw new NotImplementedException();
+
+
+			public GameAction? Last => throw new NotImplementedException();
+
+
+			public GameAction AddLast(GameAction action) => throw new NotImplementedException();
+
+
+			public void RemoveLast(GameAction action) => throw new NotImplementedException();
 		}
 	}
 }
