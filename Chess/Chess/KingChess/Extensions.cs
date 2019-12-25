@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 
@@ -69,5 +70,20 @@ namespace Chess.KingChess
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static (int x, int y) ToMailBoxIndex(this int bitIndex) => BIT_TO_MAILBOX[bitIndex];
+
+
+		#region Bit1_To_MailBox
+		private static readonly List<(int x, int y)> list = new List<(int x, int y)>(64);
+
+		/// <summary>
+		/// Chuyển tọa độ các bit 1 sang tọa độ MailBox.
+		/// </summary>
+		public static (int x, int y)[] Bit1_To_MailBox(this ulong bitboard)
+		{
+			list.Clear();
+			for (int i = 0; i < 64; ++i) if (bitboard.GetBit(i) != 0) list.Add(i.ToMailBoxIndex());
+			return list.ToArray();
+		}
+		#endregion
 	}
 }

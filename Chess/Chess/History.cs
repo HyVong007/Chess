@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 
 
@@ -20,21 +19,20 @@ namespace Chess
 	/// <typeparam name="T">Kiểu dữ liệu của <see cref="GameAction.data"/> của từng loại game.</typeparam>
 	public sealed class History<T> where T : struct
 	{
-		private readonly int MAX_ACTION_COUNT;
-
 		/// <summary>
 		/// <c>&lt;<see cref="GameAction.data"/>, isUndo&gt;</c>: Thực hiện action để thay đổi Game State (Play/ Undo/ Redo).
 		/// </summary>
-		private readonly Action<T, bool> execute;
+		public event Action<T, bool> execute;
 
 
 		/// <param name="execute"><c>&lt;<see cref="GameAction.data"/>, isUndo&gt;</c>: Thực hiện action để thay đổi Game State (Play/ Undo/ Redo).</param>
 		/// <param name="maxActionCount">Số lượng action liên tiếp tối đa có thể lưu lại.<br/>
 		/// Cũng chính là số bước Undo/Redo liên tiếp đối đa có thể thực hiện.</param>
-		public History(Action<T, bool> execute, int maxActionCount = 100)
+		public History(byte maxActionCount = byte.MaxValue)
 		{
-			this.execute = execute;
-			MAX_ACTION_COUNT = maxActionCount;
+			if (maxActionCount == 0) throw new ArgumentOutOfRangeException("MAX_ACTION_COUNT phải > 0 !");
+			recentActions = new List<GameAction>(maxActionCount);
+			undoneActions = new List<GameAction>(maxActionCount);
 		}
 
 
@@ -44,31 +42,22 @@ namespace Chess
 			public T data;
 		}
 
-		// Nên thay bằng array 1 chiều hoặc List<T>
-		private readonly LinkedList<GameAction> recentActions = new LinkedList<GameAction>(), undoneActions = new LinkedList<GameAction>();
+		private readonly List<GameAction> recentActions, undoneActions;
 		public int turn { get; private set; }
 
-		/// <summary>
-		/// Hành động gần nhất được thực hiện.
-		/// </summary>
-		public GameAction lastAction => recentActions.Last.Value;
+		public T? lastActionData => recentActions.Count > 0 ? recentActions[recentActions.Count - 1].data : (T?)null;
 
 
 		public bool CanUndo(int playerID)
 		{
-			var node = recentActions.Last;
-			while (node != null)
-			{
-				if (node.Value.playerID == playerID) return true;
-				node = node.Previous;
-			}
+			for (int i = recentActions.Count - 1; i >= 0; --i) if (recentActions[i].playerID == playerID) return true;
 			return false;
 		}
 
 
 		public bool CanRedo(int playerID)
 		{
-			foreach (var data in undoneActions) if (data.playerID == playerID) return true;
+			for (int i = 0, count = undoneActions.Count; i < count; ++i) if (undoneActions[i].playerID == playerID) return true;
 			return false;
 		}
 
@@ -76,17 +65,17 @@ namespace Chess
 		public void Undo(int playerID)
 		{
 			int id;
-			LinkedListNode<GameAction> node;
+			GameAction action;
+
 			do
 			{
 				--turn;
-				node = recentActions.Last;
-				recentActions.RemoveLast();
-				var value = node.Value;
-				id = value.playerID;
-				execute(value.data, true);
-				undoneActions.AddFirst(node);
-				if (undoneActions.Count > MAX_ACTION_COUNT) undoneActions.RemoveLast();
+				action = recentActions[recentActions.Count - 1];
+				recentActions.RemoveAt(recentActions.Count - 1);
+				id = action.playerID;
+				execute(action.data, true);
+				if (undoneActions.Count == undoneActions.Capacity) undoneActions.RemoveAt(undoneActions.Count - 1);
+				undoneActions.Insert(0, action);
 			} while (id != playerID);
 		}
 
@@ -96,21 +85,20 @@ namespace Chess
 			int id;
 			do
 			{
-				var nodeUndo = undoneActions.First;
-				undoneActions.RemoveFirst();
-				var v = nodeUndo.Value;
-				id = v.playerID;
-				execute(v.data, false);
-				int order = nodeUndo.Value.turn - 1;
+				var oldAction = undoneActions[0];
+				undoneActions.RemoveAt(0);
+				id = oldAction.playerID;
+				execute(oldAction.data, false);
+				int order = oldAction.turn - 1;
 				while (recentActions.Count != 0)
 				{
-					var value = recentActions.Last.Value;
-					if (value.turn == order) break;
-					execute(value.data, true);
-					recentActions.RemoveLast();
+					var action = recentActions[recentActions.Count - 1];
+					if (action.turn == order) break;
+					execute(action.data, true);
+					recentActions.RemoveAt(recentActions.Count - 1);
 				}
 
-				recentActions.AddLast(nodeUndo);
+				recentActions.Add(oldAction);
 			} while (id != playerID);
 		}
 
@@ -121,60 +109,21 @@ namespace Chess
 		public void Play(int playerID, T actionData)
 		{
 			execute(actionData, false);
-			var action = new GameAction() { turn = turn++, playerID = playerID, data = actionData };
-			recentActions.AddLast(action);
-			if (recentActions.Count > MAX_ACTION_COUNT)
+			if (turn == int.MaxValue)
 			{
-				if (recentActions.First.Value.turn == undoneActions.Last?.Value.turn) undoneActions.RemoveLast();
-				recentActions.RemoveFirst();
+				turn = 0;
+				recentActions.Clear();
+				undoneActions.Clear();
 			}
-		}
+			else ++turn;
 
-
-
-		private sealed class Storage : IEnumerable<GameAction>
-		{
-			private readonly GameAction[] array;
-
-
-			public Storage(int count)
+			var action = new GameAction() { turn = turn, playerID = playerID, data = actionData };
+			if (recentActions.Count == recentActions.Capacity)
 			{
-				array = new GameAction[count];
+				if (undoneActions.Count > 0 && undoneActions[undoneActions.Count - 1].turn == recentActions[0].turn) undoneActions.RemoveAt(undoneActions.Count - 1);
+				recentActions.RemoveAt(0);
 			}
-
-
-			public GameAction this[int index] => throw new NotImplementedException();
-
-			public IEnumerator<GameAction> GetEnumerator()
-			{
-				throw new NotImplementedException();
-			}
-
-			IEnumerator IEnumerable.GetEnumerator()
-			{
-				throw new NotImplementedException();
-			}
-
-
-			public int Count => throw new NotImplementedException();
-
-
-			public GameAction? First => throw new NotImplementedException();
-
-
-			public GameAction AddFirst(GameAction action) => throw new NotImplementedException();
-
-
-			public void RemoveFirst() => throw new NotImplementedException();
-
-
-			public GameAction? Last => throw new NotImplementedException();
-
-
-			public GameAction AddLast(GameAction action) => throw new NotImplementedException();
-
-
-			public void RemoveLast(GameAction action) => throw new NotImplementedException();
+			recentActions.Add(action);
 		}
 	}
 }

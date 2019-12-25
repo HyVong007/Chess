@@ -25,9 +25,9 @@ namespace Chess.KingChess
 
 
 
-	public class Board
+	public sealed class Board
 	{
-		public const ulong
+		private const ulong
 			CENTER = 0x1818000000UL,
 			EXTENDED_CENTER = 0x3C3C3C3C0000UL,
 			FILE_A = 0x101010101010101UL,
@@ -76,12 +76,17 @@ namespace Chess.KingChess
 			new (Color color, PieceName piece)?[]{(Color.White, PieceName.Rook), (Color.White, PieceName.Pawn), null, null, null, null, (Color.Black, PieceName.Pawn), (Color.Black, PieceName.Rook)},
 		};
 
+		private readonly History<MoveData> history;
 
+
+		///<summary>
+		/// Cần kiểm tra mailbox !
+		///</summary>
 		/// <param name="getPromotedPiece">Pawn Promotion GUI: hiện UI cho người chơi chọn 1 quân để phong cấp (ngoại trừ Vua và Tốt).</param>
-		public Board((Color color, PieceName piece)?[][] mailBox, Func<Color, Task<PieceName?>> getPromotedPiece)
+		public Board(History<MoveData> history, (Color color, PieceName piece)?[][] mailBox)
 		{
-			this.getPromotedPiece = getPromotedPiece;
 			this.mailBox = mailBox;
+			(this.history = history).execute += Move;
 
 			#region Khởi tạo {color_piece_bitboards}
 			color_piece_bitboards = new ulong[2][];
@@ -92,14 +97,17 @@ namespace Chess.KingChess
 				{
 					if (mailBox[x][y] == null) continue;
 					var (color, piece) = mailBox[x][y].Value;
-					color_piece_bitboards[(int)color][(int)piece] |= 0UL.SetBit(index);
+					color_piece_bitboards[(int)color][(int)piece].SetBit(index);
 				}
 			#endregion
 		}
 
 
+		///<summary>
+		/// Cần kiểm tra mailbox !
+		///</summary>
 		/// <param name="getPromotedPiece">Pawn Promotion GUI: hiện UI cho người chơi chọn 1 quân để phong cấp (ngoại trừ Vua và Tốt).</param>
-		public Board(Func<Color, Task<PieceName?>> getPromotedPiece) : this(DEFAULT_MAILBOX, getPromotedPiece) { }
+		public Board(History<MoveData> history) : this(history, DEFAULT_MAILBOX) { }
 		#endregion
 
 
@@ -273,18 +281,18 @@ namespace Chess.KingChess
 
 
 		/// <summary>
-		/// Tìm tập hợp các ô có thể di chuyển của quân cờ theo luật của từng loại quân cờ. Chưa kiểm tra xem King có bị chiếu.
+		/// Tìm tập hợp các ô có thể di chuyển của quân cờ theo luật của từng loại quân cờ. Chưa kiểm tra xem King color có bị chiếu.
 		/// <para>(bit 1 = move-square)</para>
 		/// </summary>
 		/// <param name="index"><c>if index !=null:</c> Chỉ trả về tập hợp moves của quân cờ tại index.</param>
-		public ulong FindPseudoLegalMoves(Color color, PieceName piece, int? index = null)
+		private ulong FindPseudoLegalMoves(Color color, PieceName piece, int? index = null)
 		{
 			ulong SOURCE = index != null ? color_piece_bitboards[(int)color][(int)piece].GetBit(index.Value) : color_piece_bitboards[(int)color][(int)piece];
+			if (SOURCE == 0) return 0UL;
 			ulong result = 0UL;
 			ulong EMPTY = empty;
 			ulong OPPONENT = color == Color.White ? this[Color.Black] : this[Color.White];
 			ulong EMPTY_OR_OPPONENT = EMPTY | OPPONENT;
-
 
 			switch (piece)
 			{
@@ -301,8 +309,6 @@ namespace Chess.KingChess
 						result |= forward1 << 8 & EMPTY & RANK_4;   // đi về trước 2 bước
 						P_ls <<= 1;
 						result |= P_ls & OPPONENT & ~FILE_A;     // ăn chéo phải		
-
-						// enpassant (Bắt Tốt qua đường) ?
 						#endregion
 					}
 					else
@@ -315,10 +321,20 @@ namespace Chess.KingChess
 						result |= forward1;
 						result |= forward1 >> 8 & EMPTY & RANK_5;   // đi về trước 2 bước
 						P_rs >>= 1;
-						result |= P_rs & OPPONENT & ~FILE_H;     // ăn chéo phải		
-
-						// enpassant (Bắt Tốt qua đường) ?
+						result |= P_rs & OPPONENT & ~FILE_H;     // ăn chéo phải
 						#endregion
+					}
+
+					// Enpassant
+					var d = history.lastActionData;
+					if (d == null) return result;
+					var data = d.Value;
+					if (data.color != color && data.piece == PieceName.Pawn
+						&& Math.Abs(data.from - data.to) == 16)
+					{
+						ulong EP = color_piece_bitboards[(int)(color == Color.White ? Color.Black : Color.White)][(int)PieceName.Pawn].GetBit(data.to);
+						if (((SOURCE << 1) & EP) != 0 || ((SOURCE >> 1) & EP) != 0)
+							result.SetBit(data.color == Color.White ? data.from + 8 : data.to + 8);
 					}
 					return result;
 				#endregion
@@ -326,8 +342,6 @@ namespace Chess.KingChess
 				case PieceName.Rook:
 					#region Rook moves
 					for (int i = 0; i < 4; ++i) result |= FindSlicingMoves(SOURCE, (Direction)i, EMPTY, EMPTY_OR_OPPONENT);
-
-					// Castling (Nhập thành) ?
 					return result;
 				#endregion
 
@@ -365,24 +379,96 @@ namespace Chess.KingChess
 				case PieceName.King:
 					#region King moves
 					for (int i = 0; i < 8; ++i) result |= FindSlicingMoves(SOURCE, (Direction)i, EMPTY, EMPTY_OR_OPPONENT, 1);
+
+					// Castling
+					if (color_kingMoveCount[(int)color] != 0) return result;
+					ulong R = color_piece_bitboards[(int)color][(int)PieceName.Rook];
+					var RCount = color_index_rookMoveCount[(int)color];
+					if (color == Color.White)
+					{
+						#region White King
+						// Near Castling
+						if (EMPTY.IsBit1(5) && EMPTY.IsBit1(6) && R.IsBit1(7) && RCount[7] == 0) result.SetBit(6);
+						// Far Castling
+						if (EMPTY.IsBit1(3) && EMPTY.IsBit1(2) && EMPTY.IsBit1(1) && R.IsBit1(0) && RCount[0] == 0) result.SetBit(2);
+						#endregion
+					}
+					else
+					{
+						#region Black King
+						// Near Castling
+						if (EMPTY.IsBit1(61) && EMPTY.IsBit1(62) && R.IsBit1(63) && RCount[63] == 0) result.SetBit(62);
+						// Far Castling
+						if (EMPTY.IsBit1(59) && EMPTY.IsBit1(58) && EMPTY.IsBit1(57) && R.IsBit1(56) && RCount[56] == 0) result.SetBit(58);
+						#endregion
+					}
 					return result;
 				#endregion
 
-				default: return result;
+				default: throw new Exception();
 			}
 		}
 
 
 		#region FindLegalMoves: Tìm các nước đi hợp lệ sau khi đã kiểm tra King xem có bị chiếu.
+		private static readonly List<int> list = new List<int>(64);
+
 		/// <summary>
 		/// Tìm các ô có thể move tới của các quân cờ (color, piece).
 		/// <para>Đã kiểm tra an toàn: Vua vẫn an toàn ngay sau khi move.</para>
+		/// <para>Return: tọa độ Bit Index các ô đi được và an toàn</para>
 		/// </summary>
 		/// <param name="index"><c>if index != null:</c> Chỉ tìm các moves của quân cờ tại index.</param>
 		/// <returns></returns>
-		public ulong FindLegalMoves(Color color, PieceName piece, int? index = null)
+		private int[] FindLegalMoves(Color color, PieceName piece, int? index)
 		{
-			throw new NotImplementedException();
+			list.Clear();
+			if (index != null)
+			{
+				ulong moves = FindPseudoLegalMoves(color, piece, index);
+				if (moves == 0) return Array.Empty<int>();
+
+				int[] to = moves.Bit1_To_Index();
+				for (int i = 0, from = index.Value; i < to.Length; ++i) if (LegalMove(from, to[i])) list.Add(to[i]);
+				return list.ToArray();
+			}
+
+			ulong SOURCE = color_piece_bitboards[(int)color][(int)piece];
+			if (SOURCE == 0) return Array.Empty<int>();
+
+			int[] froms = SOURCE.Bit1_To_Index();
+			for (int f = 0; f < froms.Length; ++f)
+			{
+				ulong moves = FindPseudoLegalMoves(color, piece, froms[f]);
+				if (moves == 0) continue;
+
+				int[] to = moves.Bit1_To_Index();
+				for (int t = 0, from = froms[f]; t < to.Length; ++t) if (LegalMove(from, to[t])) list.Add(to[t]);
+			}
+			return list.ToArray();
+
+
+			bool LegalMove(int from, int to)
+			{
+				var data = NewMoveData(this, color, piece, from, to, out bool pawnPromotion);
+				data.promotedPiece = pawnPromotion ? PieceName.Queen : (PieceName?)null;
+				PseudoMove(data, isUndo: false);
+				bool isChecked = KingIsChecked(color);
+				PseudoMove(data, isUndo: true);
+				return !isChecked;
+			}
+		}
+
+
+		/// <summary>
+		/// Tìm các ô có thể move tới của quân cờ tại index.
+		/// <para>Đã kiểm tra an toàn: Vua vẫn an toàn ngay sau khi move.</para>
+		/// </summary>
+		public int[] FindLegalMoves(int index)
+		{
+			var (x, y) = index.ToMailBoxIndex();
+			var (color, piece) = mailBox[x][y].Value;
+			return FindLegalMoves(color, piece, index);
 		}
 
 
@@ -393,19 +479,12 @@ namespace Chess.KingChess
 		public (int x, int y)[] FindLegalMoves(int x, int y)
 		{
 			var (color, piece) = mailBox[x][y].Value;
-			ulong moves = FindLegalMoves(color, piece, (x, y).ToBitIndex());
-			return Bit1_To_MailBox(moves);
-		}
+			int[] moves = FindLegalMoves(color, piece, (x, y).ToBitIndex());
+			if (moves.Length == 0) return Array.Empty<(int x, int y)>();
 
-
-		/// <summary>
-		/// Chuyển tọa độ các bit 1 sang tọa độ MailBox.
-		/// </summary>
-		public static (int x, int y)[] Bit1_To_MailBox(ulong bitboard)
-		{
-			var result = new List<(int x, int y)>();
-			for (int i = 0; i < 64; ++i) if (bitboard.GetBit(i) != 0) result.Add(i.ToMailBoxIndex());
-			return result.ToArray();
+			var result = new (int x, int y)[moves.Length];
+			for (int i = 0; i < moves.Length; ++i) result[i] = moves[i].ToMailBoxIndex();
+			return result;
 		}
 		#endregion
 
@@ -419,6 +498,11 @@ namespace Chess.KingChess
 			public PieceName? capturedPiece;
 
 			/// <summary>
+			/// Số nước đi của quân Xe bị bắt.
+			/// </summary>
+			public int? capturedRook_moveCount;
+
+			/// <summary>
 			/// Bắt Tốt qua đường (Enpassant): index của quân đối phương bị bắt thông qua enpassant.
 			/// </summary>
 			public int? enpassantCapturedIndex;
@@ -430,54 +514,163 @@ namespace Chess.KingChess
 			/// </summary>
 			public PieceName? promotedPiece;
 
-
-			private MoveData(Board board, (int x, int y) from, (int x, int y) to, out bool pawnPromotion)
+			public enum Castling
 			{
-				(color, piece) = board.mailBox[from.x][from.y].Value;
-				this.from = from.ToBitIndex();
-				this.to = to.ToBitIndex();
-				capturedPiece = board.mailBox[to.x][to.y]?.piece;
-				pawnPromotion = false;
-				promotedPiece = null;
-				enpassantCapturedIndex = null;
-				if (piece == PieceName.Pawn)
-				{
-					// Kiểm tra Pawn Promotion
-					if ((color == Color.White && this.to >= 56)
-						|| (color == Color.Black && this.to <= 7))
-					{
-						pawnPromotion = true;
-						return;
-					}
-
-					// Kiểm tra Enpassant
-					if (capturedPiece == null)
-						enpassantCapturedIndex = color == Color.White ?
-						(this.from + 7 == this.to ? this.from - 1 : this.from + 9 == this.to ? this.from + 1 : (int?)null)
-						: (this.from - 7 == this.to ? this.from + 1 : this.from - 9 == this.to ? this.from - 1 : (int?)null);
-
-					if (enpassantCapturedIndex != null)
-					{
-						var (x, y) = enpassantCapturedIndex.Value.ToMailBoxIndex();
-						capturedPiece = board.mailBox[x][y].Value.piece;
-					}
-				}
+				None, Near, Far
 			}
+			public Castling castling;
 
 
 			public static async Task<MoveData?> New(Board board, (int x, int y) from, (int x, int y) to)
 			{
-				var data = new MoveData(board, from, to, out bool pawnPromotion);
-				return !pawnPromotion ? data :
-					(data.promotedPiece = await board.getPromotedPiece(data.color)) != null ?
-					data : (MoveData?)null;
+				var (color, piece) = board.mailBox[from.x][from.y].Value;
+				var data = NewMoveData(board, color, piece, from.ToBitIndex(), to.ToBitIndex(), out bool pawnPromotion);
+				if (data.capturedPiece == PieceName.Rook)
+					data.capturedRook_moveCount = board.color_index_rookMoveCount[(int)(data.color == Color.White ? Color.Black : Color.White)][data.to];
+
+				return !pawnPromotion ? data : (data.promotedPiece = await board.getPromotedPiece(data.color)) != null ? data : (MoveData?)null;
 			}
+
+
+			public override string ToString() => $"color= {color}, piece= {piece}, from= {from.ToMailBoxIndex()}, to= {to.ToMailBoxIndex()}, capturedPiece= {capturedPiece}, " +
+					$"enpassantCapturedIndex= {enpassantCapturedIndex?.ToMailBoxIndex()}, promotedPiece= {promotedPiece}, " +
+					$"capturedRook_moveCount= {capturedRook_moveCount}, castling= {castling}";
 		}
 
-		private readonly Func<Color, Task<PieceName?>> getPromotedPiece;
+		/// <summary>
+		/// Khi nhập thành: Color Rook di chuyển từ "from" tới "to"
+		/// <para><c>COLOR_CASTLING_ROOK_MOVEMENTS[(<see cref="int"/>)<see cref="Color"/>][(<see cref="int"/>)<see cref="MoveData.Castling"/>] == (from, to)</c></para>
+		/// </summary>
+		private static readonly (int from, int to, (int x, int y) m_from, (int x, int y) m_to)[][] COLOR_CASTLING_ROOK_MOVEMENTS = new (int from, int to, (int x, int y) m_from, (int x, int y) m_to)[][]
+		{
+			// Color.White
+			new (int from, int to, (int x, int y) m_from, (int x, int y) m_to)[]
+			{
+				(from:7, to:5, m_from:7.ToMailBoxIndex(), m_to:5.ToMailBoxIndex()),	// Castling.Near
+				(from:0, to:3, m_from:0.ToMailBoxIndex(), m_to:3.ToMailBoxIndex())	// Castling.Far
+			},
+
+			// Color.Black
+			new (int from, int to, (int x, int y) m_from, (int x, int y) m_to)[]
+			{
+				(from:63, to:61, m_from:63.ToMailBoxIndex(), m_to:61.ToMailBoxIndex()),	// Castling.Near
+				(from:56, to:59, m_from:56.ToMailBoxIndex(), m_to:59.ToMailBoxIndex())	// Castling.Far
+			}
+		};
+
+		public event Func<Color, Task<PieceName?>> getPromotedPiece;
 
 
-		public void Move(MoveData data, bool isUndo)
+		/// <summary>
+		/// Nhớ cập nhật <see cref="MoveData.promotedPiece"/>
+		/// </summary>
+		private static MoveData NewMoveData(Board board, Color color, PieceName piece, int from, int to, out bool pawnPromotion)
+		{
+			var m_to = to.ToMailBoxIndex();
+			var data = new MoveData()
+			{
+				color = color,
+				piece = piece,
+				from = from,
+				to = to,
+				capturedPiece = board.mailBox[m_to.x][m_to.y]?.piece
+			};
+
+			if (piece == PieceName.Pawn)
+			{
+				// Kiểm tra Pawn Promotion
+				if ((color == Color.White && to >= 56)
+					|| (color == Color.Black && to <= 7))
+				{
+					pawnPromotion = true;
+					return data;
+				}
+
+				// Kiểm tra Enpassant
+				if (data.capturedPiece == null)
+					data.enpassantCapturedIndex = color == Color.White ?
+					(from + 7 == to ? from - 1 : from + 9 == to ? from + 1 : (int?)null)
+					: (from - 7 == to ? from + 1 : from - 9 == to ? from - 1 : (int?)null);
+
+				if (data.enpassantCapturedIndex != null)
+				{
+					var (x, y) = data.enpassantCapturedIndex.Value.ToMailBoxIndex();
+					data.capturedPiece = board.mailBox[x][y].Value.piece;
+				}
+			}
+			else if (piece == PieceName.King)
+				data.castling = color == Color.White ?
+					(to == 6 ? MoveData.Castling.Near : to == 2 ? MoveData.Castling.Far : MoveData.Castling.None)
+					: (to == 62 ? MoveData.Castling.Near : to == 58 ? MoveData.Castling.Far : MoveData.Castling.None);
+
+			pawnPromotion = false;
+			return data;
+		}
+
+
+		private void Move(MoveData data, bool isUndo)
+		{
+			PseudoMove(data, isUndo);
+
+			#region Cập nhật state
+			var oldState = state[(int)data.color];
+			state[(int)data.color] = State.Normal;
+			if (oldState == State.Check) onStateChanged?.Invoke(data.color, State.Normal);
+
+			var opponentColor = data.color == Color.White ? Color.Black : Color.White;
+			if (KingIsChecked(opponentColor))
+			{
+				for (int p = 0; p < 6; ++p)
+					if (FindLegalMoves(opponentColor, (PieceName)p, null).Length != 0)
+					{
+						state[(int)opponentColor] = State.Check;
+						onStateChanged?.Invoke(opponentColor, State.Check);
+						goto END;
+					}
+
+				state[(int)opponentColor] = State.CheckMate;
+				onStateChanged?.Invoke(opponentColor, State.CheckMate);
+			END:;
+			}
+			#endregion
+
+			#region Cập nhật {color_kingMoveCount} và {color_index_rookMoveCount}
+			if (!isUndo)
+			{
+				#region DO
+				if (data.piece == PieceName.King)
+					color_kingMoveCount[(int)data.color] = color_kingMoveCount[(int)data.color] < int.MaxValue ? color_kingMoveCount[(int)data.color] + 1 : 1;
+
+				var rookCount = color_index_rookMoveCount[(int)data.color];
+				if (data.promotedPiece == PieceName.Rook) rookCount[data.to] = 1;
+				if (data.castling != MoveData.Castling.None)
+					rookCount[COLOR_CASTLING_ROOK_MOVEMENTS[(int)data.color][(int)data.castling].to] = 1;
+				else if (data.piece == PieceName.Rook) rookCount[data.to] = rookCount[data.to] < int.MaxValue ? rookCount[data.from] + 1 : 1;
+				#endregion
+			}
+			else
+			{
+				#region UNDO
+				if (data.piece == PieceName.King) --color_kingMoveCount[(int)data.color];
+
+				var rookCount = color_index_rookMoveCount[(int)data.color];
+				if (data.castling != MoveData.Castling.None)
+					rookCount[COLOR_CASTLING_ROOK_MOVEMENTS[(int)data.color][(int)data.castling].from] = 0;
+				else if (data.piece == PieceName.Rook) rookCount[data.from] = rookCount[data.to] - 1;
+
+				if (data.capturedPiece == PieceName.Rook)
+					color_index_rookMoveCount[(int)(data.color == Color.White ? Color.Black : Color.White)][data.to] = data.capturedRook_moveCount.Value;
+				#endregion
+			}
+			#endregion
+		}
+
+
+		/// <summary>
+		/// Đi 1 nước/ Hủy 1 nước. Chỉ tác động đến <see cref="color_piece_bitboards"/> và <see cref="mailBox"/>
+		/// <para>Có thể dùng để test và hủy nước đi sau khi test.</para>
+		/// </summary>
+		private void PseudoMove(MoveData data, bool isUndo)
 		{
 			ulong PIECE = color_piece_bitboards[(int)data.color][(int)data.piece];
 			ulong OPPONENT_PIECE = data.capturedPiece != null ? color_piece_bitboards[(int)(data.color == Color.White ? Color.Black : Color.White)][(int)data.capturedPiece] : 0UL;
@@ -487,17 +680,14 @@ namespace Chess.KingChess
 			if (!isUndo)
 			{
 				#region DO
-				PIECE = PIECE.ClearBit(data.from);
+				PIECE.ClearBit(data.from);
 				mailBox[from.x][from.y] = null;
 
-				#region Đặt quân vào ô vị trí {to}
+				#region Đặt quân {data.piece} vào ô vị trí {to}
 				mailBox[to.x][to.y] = (data.color, data.promotedPiece != null ? data.promotedPiece.Value : data.piece);
 				if (data.promotedPiece != null)
-				{
-					var p = data.promotedPiece.Value;
-					color_piece_bitboards[(int)data.color][(int)p] = color_piece_bitboards[(int)data.color][(int)p].SetBit(data.to);
-				}
-				else PIECE = PIECE.SetBit(data.to);
+					color_piece_bitboards[(int)data.color][(int)data.promotedPiece.Value].SetBit(data.to);
+				else PIECE.SetBit(data.to);
 				#endregion
 
 				#region Xử lý nếu có bắt quân đối phương
@@ -506,75 +696,117 @@ namespace Chess.KingChess
 					{
 						// Bắt Tốt Qua Đường
 						int bitIndex = data.enpassantCapturedIndex.Value;
-						OPPONENT_PIECE = OPPONENT_PIECE.ClearBit(bitIndex);
+						OPPONENT_PIECE.ClearBit(bitIndex);
 						var (x, y) = bitIndex.ToMailBoxIndex();
 						mailBox[x][y] = null;
 					}
-					else OPPONENT_PIECE = OPPONENT_PIECE.ClearBit(data.to);
+					else OPPONENT_PIECE.ClearBit(data.to);
 				#endregion
 
-				#region Xử lý trường hợp Nhập Thành (Castling)
-				if (data.piece == PieceName.King)
+				if (data.castling != MoveData.Castling.None)
 				{
-					ulong ROOK = color_piece_bitboards[(int)data.color][(int)PieceName.Rook];
-					var ROOK_PIECE = (data.color, PieceName.Rook);
-					if (data.color == Color.White)
-					{
-						if (data.to == 6)
-						{
-							#region Near Castling
-							ROOK = ROOK.ClearBit(7);
-							mailBox[7][0] = null;
-							ROOK = ROOK.SetBit(5);
-							mailBox[5][0] = ROOK_PIECE;
-							#endregion
-						}
-						else if (data.to == 2)
-						{
-							#region Far Castling
-							ROOK = ROOK.ClearBit(0);
-							mailBox[0][0] = null;
-							ROOK = ROOK.SetBit(3);
-							mailBox[3][0] = ROOK_PIECE;
-							#endregion
-						}
-					}
-					else
-					{
-						if (data.to == 62)
-						{
-							#region Near Castling
-							ROOK = ROOK.ClearBit(63);
-							mailBox[7][7] = null;
-							ROOK = ROOK.SetBit(61);
-							mailBox[5][7] = ROOK_PIECE;
-							#endregion
-						}
-						else if (data.to == 58)
-						{
-							#region Far Castling
-							ROOK = ROOK.ClearBit(56);
-							mailBox[0][7] = null;
-							ROOK = ROOK.SetBit(59);
-							mailBox[3][7] = ROOK_PIECE;
-							#endregion
-						}
-					}
-					color_piece_bitboards[(int)data.color][(int)PieceName.Rook] = ROOK;
+					var r = COLOR_CASTLING_ROOK_MOVEMENTS[(int)data.color][(int)data.castling];
+					color_piece_bitboards[(int)data.color][(int)PieceName.Rook].ClearBit(r.from);
+					mailBox[r.m_from.x][r.m_from.y] = null;
+					color_piece_bitboards[(int)data.color][(int)PieceName.Rook].SetBit(r.to);
+					mailBox[r.m_to.x][r.m_to.y] = (data.color, PieceName.Rook);
 				}
-
-				#endregion
 				#endregion
 			}
 			else
 			{
 				#region UNDO
-				throw new NotImplementedException();
+				PIECE.SetBit(data.from);
+				mailBox[from.x][from.y] = (data.color, data.piece);
+
+				#region Lấy quân {data.piece} hoặc {data.promotedPiece} ra khỏi ô vị trí {to}
+				if (data.promotedPiece != null)
+					color_piece_bitboards[(int)data.color][(int)data.promotedPiece.Value].ClearBit(data.to);
+				else PIECE.ClearBit(data.to);
+				#endregion
+
+				#region Khôi phục lại quân đối phương bị bắt nếu có
+				if (data.capturedPiece != null)
+				{
+					var opponentColor = data.color == Color.White ? Color.Black : Color.White;
+					if (data.enpassantCapturedIndex != null)
+					{
+						mailBox[to.x][to.y] = null;
+						var bitIndex = data.enpassantCapturedIndex.Value;
+						OPPONENT_PIECE.SetBit(bitIndex);
+						var (x, y) = bitIndex.ToMailBoxIndex();
+						mailBox[x][y] = (opponentColor, data.capturedPiece.Value);
+					}
+					else
+					{
+						OPPONENT_PIECE.SetBit(data.to);
+						mailBox[to.x][to.y] = (opponentColor, data.capturedPiece.Value);
+					}
+				}
+				else mailBox[to.x][to.y] = null;
+				#endregion
+
+				if (data.castling != MoveData.Castling.None)
+				{
+					var r = COLOR_CASTLING_ROOK_MOVEMENTS[(int)data.color][(int)data.castling];
+					color_piece_bitboards[(int)data.color][(int)PieceName.Rook].SetBit(r.from);
+					mailBox[r.m_from.x][r.m_from.y] = (data.color, PieceName.Rook);
+					color_piece_bitboards[(int)data.color][(int)PieceName.Rook].ClearBit(r.to);
+					mailBox[r.m_to.x][r.m_to.y] = null;
+				}
 				#endregion
 			}
 
 			color_piece_bitboards[(int)data.color][(int)data.piece] = PIECE;
 			if (data.capturedPiece != null) color_piece_bitboards[(int)(data.color == Color.White ? Color.Black : Color.White)][(int)data.capturedPiece] = OPPONENT_PIECE;
+		}
+		#endregion
+
+
+		/// <summary>
+		/// Dùng để kiểm tra Nhập Thành (Castling).
+		/// <para><c>color_kingMoveCount[(<see cref="int"/>)<see cref="Color"/>] == moveCount_of_King</c></para> 
+		/// </summary>
+		private readonly int[] color_kingMoveCount = new int[2];
+
+		/// <summary>
+		/// Dùng để kiểm tra Nhập Thành (Castling).
+		/// <para><c>color_index_rookMoveCount[(<see cref="int"/>)<see cref="Color"/>][index] == moveCount_of_Rook</c></para>
+		/// </summary>
+		private readonly int[][] color_index_rookMoveCount = new int[][]
+		{
+			new int[64], new int[64]
+		};
+
+
+		#region State: trạng thái bàn cờ: Vua bên Color có bị chiếu hay chiếu bí
+		public enum State
+		{
+			Normal, Check, CheckMate
+		}
+
+		/// <summary>
+		/// <c>state[(<see cref="int"/>)<see cref="Color"/>] == state</c>
+		/// </summary>
+		private readonly State[] state = new State[2];
+		public event Action<Color, State> onStateChanged;
+
+
+		public State GetState(Color color) => state[(int)color];
+
+
+		///<summary>
+		/// Vua có bị chiếu ?
+		///</summary>
+		/// <param name="color">Màu của quân Vua đang kiểm tra.</param>
+		/// <returns></returns>
+		private bool KingIsChecked(Color color)
+		{
+			ulong king = color_piece_bitboards[(int)color][(int)PieceName.King];
+			var opponentColor = color == Color.White ? Color.Black : Color.White;
+			for (int i = 0; i < 6; ++i)
+				if ((king & FindPseudoLegalMoves(opponentColor, (PieceName)i)) != 0) return true;
+			return false;
 		}
 		#endregion
 	}

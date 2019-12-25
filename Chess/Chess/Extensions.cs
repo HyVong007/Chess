@@ -33,10 +33,17 @@ namespace Chess
 
 
 		/// <summary>
+		/// <c>bit[index] == 1</c>
+		/// </summary>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static bool IsBit1(this ulong u, int index) => (u & _1_LS[index]) != 0;
+
+
+		/// <summary>
 		/// Bit[index] is changed to 1. Other bits will be preserved.
 		/// </summary>
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static ulong SetBit(this ulong u, int index) => u | _1_LS[index];
+		public static void SetBit(ref this ulong u, int index) => u |= _1_LS[index];
 
 
 		/// <summary>
@@ -46,13 +53,13 @@ namespace Chess
 		/// <param name="index"></param>
 		/// <returns></returns>
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static ulong ClearBit(this ulong u, int index) => u & NOT_1_LS[index];
+		public static void ClearBit(ref this ulong u, int index) => u &= NOT_1_LS[index];
 
 
 		/// <summary>
 		/// Number of bits which is set (bit 1)
 		/// </summary>
-		public static int BitSetCount(this ulong u)
+		public static int Bit1Count(this ulong u)
 		{
 			int count = 0;
 			while (u != 0)
@@ -70,7 +77,7 @@ namespace Chess
 		/// </summary>
 		/// <param name="startIndex">Vị trí bắt đầu (Inclusive)</param>
 		/// <param name="stopIndex">Vị trí kết thúc (Inclusive)</param>
-		public static ulong ReverseBit(this ulong source, int startIndex, int stopIndex)
+		public static void ReverseBit(ref this ulong source, int startIndex, int stopIndex)
 		{
 			ulong tmp = source;
 
@@ -97,8 +104,23 @@ namespace Chess
 			}
 			#endregion
 
-			return source | reversed;
+			source |= reversed;
 		}
+
+
+		#region Bit1_To_Index
+		private static readonly List<int> list = new List<int>(64);
+
+		/// <summary>
+		/// Chuyển tọa độ các bit 1 sang tọa độ Bit Index.
+		/// </summary>
+		public static int[] Bit1_To_Index(this ulong bitboard)
+		{
+			list.Clear();
+			for (int i = 0; i < 64; ++i) if (bitboard.GetBit(i) != 0) list.Add(i);
+			return list.ToArray();
+		}
+		#endregion
 
 
 		/// <summary>
