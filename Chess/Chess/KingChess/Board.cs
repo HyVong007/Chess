@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
 
 
 namespace Chess.KingChess
@@ -83,10 +84,11 @@ namespace Chess.KingChess
 		/// Cần kiểm tra mailbox !
 		///</summary>
 		/// <param name="getPromotedPiece">Pawn Promotion GUI: hiện UI cho người chơi chọn 1 quân để phong cấp (ngoại trừ Vua và Tốt).</param>
-		public Board(History<MoveData> history, (Color color, PieceName piece)?[][] mailBox)
+		public Board(History<MoveData> history, Func<Color, Task<PieceName?>> getPromotedPiece, (Color color, PieceName piece)?[][] mailBox)
 		{
-			this.mailBox = mailBox;
 			(this.history = history).execute += Move;
+			this.getPromotedPiece = getPromotedPiece;
+			this.mailBox = mailBox;
 
 			#region Khởi tạo {color_piece_bitboards}
 			color_piece_bitboards = new ulong[2][];
@@ -107,7 +109,7 @@ namespace Chess.KingChess
 		/// Cần kiểm tra mailbox !
 		///</summary>
 		/// <param name="getPromotedPiece">Pawn Promotion GUI: hiện UI cho người chơi chọn 1 quân để phong cấp (ngoại trừ Vua và Tốt).</param>
-		public Board(History<MoveData> history) : this(history, DEFAULT_MAILBOX) { }
+		public Board(History<MoveData> history, Func<Color, Task<PieceName?>> getPromotedPiece) : this(history, getPromotedPiece, DEFAULT_MAILBOX) { }
 		#endregion
 
 
@@ -132,6 +134,7 @@ namespace Chess.KingChess
 
 		public void Print()
 		{
+			Console.WriteLine($"turn= {history.turn}");
 			for (int y = mailBox[0].Length - 1; y >= 0; --y)
 			{
 				Console.ForegroundColor = ConsoleColor.DarkRed;
@@ -558,7 +561,7 @@ namespace Chess.KingChess
 			}
 		};
 
-		public event Func<Color, Task<PieceName?>> getPromotedPiece;
+		private readonly Func<Color, Task<PieceName?>> getPromotedPiece;
 
 
 		/// <summary>
@@ -792,6 +795,7 @@ namespace Chess.KingChess
 		public event Action<Color, State> onStateChanged;
 
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public State GetState(Color color) => state[(int)color];
 
 
