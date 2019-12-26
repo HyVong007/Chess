@@ -157,7 +157,7 @@ public class Test
 		{
 			Console.WriteLine("Help:\n" +
 				"play [from_file][from_rank][to_file][to_rank]		Example: play a1h7\n" +
-				"find [file][rank]			Example: find a1h7\n" +
+				"find [file][rank]			Example: find a1\n" +
 				"canundo [color]			Example: canundo white / canundo black\n" +
 				"canredo [color]			Example: canredo white / canredo black\n" +
 				"undo [color]			Example: undo white / undo black\n" +
