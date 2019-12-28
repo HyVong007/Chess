@@ -88,16 +88,16 @@ namespace Chess.KingChess
 		{
 			(this.history = history).execute += Move;
 			this.getPromotedPiece = getPromotedPiece;
-			this.mailBox = mailBox;
+			for (int x = 0; x < 8; ++x) this.mailBox[x] = new (Color color, PieceName piece)?[8];
 
-			#region Khởi tạo {color_piece_bitboards}
+			#region Khởi tạo {color_piece_bitboards} và {mailBox}
 			color_piece_bitboards = new ulong[2][];
 			int piece_length = Enum.GetValues(typeof(PieceName)).Length;
 			foreach (Color color in Enum.GetValues(typeof(Color))) color_piece_bitboards[(int)color] = new ulong[piece_length];
 			for (int ROW = mailBox.Length, COL = mailBox[0].Length, y = 0, index = 0; y < COL; ++y)
 				for (int x = 0; x < ROW; ++x, ++index)
 				{
-					if (mailBox[x][y] == null) continue;
+					if ((this.mailBox[x][y] = mailBox[x][y]) == null) continue;
 					var (color, piece) = mailBox[x][y].Value;
 					color_piece_bitboards[(int)color][(int)piece].SetBit(index);
 				}
@@ -453,7 +453,7 @@ namespace Chess.KingChess
 
 			bool LegalMove(int from, int to)
 			{
-				var data = NewMoveData(this, color, piece, from, to, out bool pawnPromotion);
+				var data = NewMoveData(color, piece, from, to, out bool pawnPromotion);
 				data.promotedPiece = pawnPromotion ? PieceName.Queen : (PieceName?)null;
 				PseudoMove(data, isUndo: false);
 				bool isChecked = KingIsChecked(color);
@@ -524,17 +524,6 @@ namespace Chess.KingChess
 			public Castling castling;
 
 
-			public static async Task<MoveData?> New(Board board, (int x, int y) from, (int x, int y) to)
-			{
-				var (color, piece) = board.mailBox[from.x][from.y].Value;
-				var data = NewMoveData(board, color, piece, from.ToBitIndex(), to.ToBitIndex(), out bool pawnPromotion);
-				if (data.capturedPiece == PieceName.Rook)
-					data.capturedRook_moveCount = board.color_index_rookMoveCount[(int)(data.color == Color.White ? Color.Black : Color.White)][data.to];
-
-				return !pawnPromotion ? data : (data.promotedPiece = await board.getPromotedPiece(data.color)) != null ? data : (MoveData?)null;
-			}
-
-
 			public override string ToString() => $"color= {color}, piece= {piece}, from= {from.ToMailBoxIndex()}, to= {to.ToMailBoxIndex()}, capturedPiece= {capturedPiece}, " +
 					$"enpassantCapturedIndex= {enpassantCapturedIndex?.ToMailBoxIndex()}, promotedPiece= {promotedPiece}, " +
 					$"capturedRook_moveCount= {capturedRook_moveCount}, castling= {castling}";
@@ -567,7 +556,7 @@ namespace Chess.KingChess
 		/// <summary>
 		/// Nhớ cập nhật <see cref="MoveData.promotedPiece"/>
 		/// </summary>
-		private static MoveData NewMoveData(Board board, Color color, PieceName piece, int from, int to, out bool pawnPromotion)
+		private MoveData NewMoveData(Color color, PieceName piece, int from, int to, out bool pawnPromotion)
 		{
 			var m_to = to.ToMailBoxIndex();
 			var data = new MoveData()
@@ -576,7 +565,7 @@ namespace Chess.KingChess
 				piece = piece,
 				from = from,
 				to = to,
-				capturedPiece = board.mailBox[m_to.x][m_to.y]?.piece
+				capturedPiece = mailBox[m_to.x][m_to.y]?.piece
 			};
 
 			if (piece == PieceName.Pawn)
@@ -598,7 +587,7 @@ namespace Chess.KingChess
 				if (data.enpassantCapturedIndex != null)
 				{
 					var (x, y) = data.enpassantCapturedIndex.Value.ToMailBoxIndex();
-					data.capturedPiece = board.mailBox[x][y].Value.piece;
+					data.capturedPiece = mailBox[x][y].Value.piece;
 				}
 			}
 			else if (piece == PieceName.King)
@@ -608,6 +597,17 @@ namespace Chess.KingChess
 
 			pawnPromotion = false;
 			return data;
+		}
+
+
+		public async Task<MoveData?> GenerateMoveData((int x, int y) from, (int x, int y) to)
+		{
+			var (color, piece) = mailBox[from.x][from.y].Value;
+			var data = NewMoveData(color, piece, from.ToBitIndex(), to.ToBitIndex(), out bool pawnPromotion);
+			if (data.capturedPiece == PieceName.Rook)
+				data.capturedRook_moveCount = color_index_rookMoveCount[(int)(data.color == Color.White ? Color.Black : Color.White)][data.to];
+
+			return !pawnPromotion ? data : (data.promotedPiece = await getPromotedPiece(data.color)) != null ? data : (MoveData?)null;
 		}
 
 

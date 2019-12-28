@@ -69,10 +69,10 @@ namespace Chess
 
 			do
 			{
-				--turn;
 				action = recentActions[recentActions.Count - 1];
 				recentActions.RemoveAt(recentActions.Count - 1);
 				id = action.playerID;
+				--turn;
 				execute(action.data, true);
 				if (undoneActions.Count == undoneActions.Capacity) undoneActions.RemoveAt(undoneActions.Count - 1);
 				undoneActions.Insert(0, action);
@@ -88,12 +88,14 @@ namespace Chess
 				var oldAction = undoneActions[0];
 				undoneActions.RemoveAt(0);
 				id = oldAction.playerID;
+				++turn;	// co the loi
 				execute(oldAction.data, false);
 				int order = oldAction.turn - 1;
 				while (recentActions.Count != 0)
 				{
 					var action = recentActions[recentActions.Count - 1];
 					if (action.turn == order) break;
+					++turn;	// co the loi
 					execute(action.data, true);
 					recentActions.RemoveAt(recentActions.Count - 1);
 				}
@@ -108,7 +110,6 @@ namespace Chess
 		/// </summary>
 		public void Play(int playerID, T actionData)
 		{
-			execute(actionData, false);
 			if (turn == int.MaxValue)
 			{
 				turn = 0;
@@ -116,6 +117,7 @@ namespace Chess
 				undoneActions.Clear();
 			}
 			else ++turn;
+			execute(actionData, false);
 
 			var action = new GameAction() { turn = turn, playerID = playerID, data = actionData };
 			if (recentActions.Count == recentActions.Capacity)
