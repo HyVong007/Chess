@@ -63,6 +63,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Chess\ChineseChess\Board.cs" />
+    <Compile Include="Chess\ChineseChess\Extensions.cs" />
     <Compile Include="Chess\ChineseChess\Tests\Test.cs" />
     <Compile Include="Chess\History.cs" />
     <Compile Include="Chess\KingChess\Board.cs" />

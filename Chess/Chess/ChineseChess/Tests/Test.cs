@@ -20,7 +20,8 @@ namespace Chess.ChineseChess.Tests
 			#endregion
 
 
-			var board = Board.NewCustom(a);
+			var history = new History<Board.MoveData>();
+			var board = Board.NewCustom(history, a);
 			board.Print();
 		}
 	}
