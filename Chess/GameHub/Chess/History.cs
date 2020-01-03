@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 
 
-namespace Chess
+namespace GameHub.Chess
 {
 
 	// Tương lai sửa thành class TurnManager

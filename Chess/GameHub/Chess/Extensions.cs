@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 
-namespace Chess
+namespace GameHub.Chess
 {
 	public static class Number_Extension
 	{
@@ -158,24 +158,5 @@ namespace Chess
 			Console.ForegroundColor = ConsoleColor.White;
 			Console.WriteLine();
 		}
-	}
-
-
-
-	public struct ReadOnlyArray<T> : IEnumerable<T>
-	{
-		private readonly T[] array;
-
-
-		public ReadOnlyArray(T[] array) => this.array = array;
-
-
-		public T this[int index] => array[index];
-
-		public int Length => array.Length;
-
-		public IEnumerator<T> GetEnumerator() => (array as IEnumerable<T>).GetEnumerator();
-
-		IEnumerator IEnumerable.GetEnumerator() => array.GetEnumerator();
 	}
 }

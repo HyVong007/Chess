@@ -62,14 +62,27 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Chess\ChineseChess\Board.cs" />
-    <Compile Include="Chess\ChineseChess\Extensions.cs" />
-    <Compile Include="Chess\ChineseChess\Tests\Test.cs" />
-    <Compile Include="Chess\History.cs" />
-    <Compile Include="Chess\KingChess\Board.cs" />
-    <Compile Include="Chess\Extensions.cs" />
-    <Compile Include="Chess\KingChess\Extensions.cs" />
-    <Compile Include="Chess\KingChess\Tests\Test.cs" />
+    <Compile Include="GameHub\Cards\Bài 3 Cây\Card.cs" />
+    <Compile Include="GameHub\Cards\Bài 3 Cây\Tripple.cs" />
+    <Compile Include="GameHub\Cards\Bài Cào\Card.cs" />
+    <Compile Include="GameHub\Cards\Bài Cào\Tripple.cs" />
+    <Compile Include="GameHub\Cards\Card.cs" />
+    <Compile Include="GameHub\Cards\Liêng\Card.cs" />
+    <Compile Include="GameHub\Cards\Liêng\Tripple.cs" />
+    <Compile Include="GameHub\Cards\Tiến Lên\Card.cs" />
+    <Compile Include="GameHub\Cards\Tiến Lên\Desk.cs" />
+    <Compile Include="GameHub\Cards\Tiến Lên\Set.cs" />
+    <Compile Include="GameHub\Chess\ChineseChess\Board.cs" />
+    <Compile Include="GameHub\Chess\ChineseChess\Extensions.cs" />
+    <Compile Include="GameHub\Chess\GOChess\Board.cs" />
+    <Compile Include="GameHub\Chess\GOChess\Piece.cs" />
+    <Compile Include="GameHub\Chess\Gomoku\Board.cs" />
+    <Compile Include="GameHub\Chess\History.cs" />
+    <Compile Include="GameHub\Chess\KingChess\Board.cs" />
+    <Compile Include="GameHub\Chess\Extensions.cs" />
+    <Compile Include="GameHub\Chess\KingChess\Extensions.cs" />
+    <Compile Include="GameHub\Tests\Test.cs" />
+    <Compile Include="GameHub\UtilTypes.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

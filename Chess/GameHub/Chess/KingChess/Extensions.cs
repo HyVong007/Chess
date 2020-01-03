@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 
-namespace Chess.KingChess
+namespace GameHub.Chess.KingChess
 {
 	public static class King_Number_Extension
 	{

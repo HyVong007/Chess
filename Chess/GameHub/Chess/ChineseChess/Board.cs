@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System;
 
 
-namespace Chess.ChineseChess
+namespace GameHub.Chess.ChineseChess
 {
 	public enum Color
 	{
@@ -25,32 +25,22 @@ namespace Chess.ChineseChess
 
 
 
-	public struct Piece
+	public readonly struct Piece
 	{
-		public Color color;
-		public PieceName name;
-		public bool hidden;
-	}
+		public readonly Color color;
+		public readonly PieceName name;
+		public readonly bool hidden;
 
 
-
-	public readonly struct Rect
-	{
-		public readonly int xMin, yMin, xMax, yMax;
-
-
-		public Rect(int xMin, int yMin, int xMax, int yMax)
+		internal Piece(Color color, PieceName name, bool hidden = false)
 		{
-			this.xMin = xMin; this.yMin = yMin; this.xMax = xMax; this.yMax = yMax;
+			this.color = color;
+			this.name = name;
+			this.hidden = hidden;
 		}
 
 
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public bool Contains(int x, int y) => xMin <= x && x <= xMax && yMin <= y && y <= yMax;
-
-
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public bool Contains((int x, int y) index) => Contains(index.x, index.y);
+		public override string ToString() => $"(color= {color}, name= {name}, hidden= {hidden})";
 	}
 
 
@@ -62,31 +52,31 @@ namespace Chess.ChineseChess
 		private static readonly Piece?[][] DEFAULT_MAILBOX = new Piece?[][]
 		{
 			// FILE A
-			new Piece?[]{new Piece(){color=Color.Red, name=PieceName.Rook},null, null, new Piece(){color=Color.Red, name=PieceName.Pawn}, null, null, new Piece(){color=Color.Blue, name=PieceName.Pawn}, null, null, new Piece(){color=Color.Blue, name=PieceName.Rook} },
+			new Piece?[]{new Piece(Color.Red, PieceName.Rook),null, null, new Piece(Color.Red,PieceName.Pawn), null, null, new Piece(Color.Blue, PieceName.Pawn), null, null, new Piece(Color.Blue,PieceName.Rook) },
 
 			// FILE B
-			new Piece?[]{ new Piece() { color = Color.Red, name = PieceName.Horse }, null, new Piece() { color = Color.Red, name = PieceName.Cannon }, null, null, null, null, new Piece() { color = Color.Blue, name = PieceName.Cannon }, null, new Piece() { color = Color.Blue, name = PieceName.Horse } },
+			new Piece?[]{ new Piece( Color.Red,PieceName.Horse ), null, new Piece( Color.Red,  PieceName.Cannon ), null, null, null, null, new Piece( Color.Blue,  PieceName.Cannon ), null, new Piece( Color.Blue,  PieceName.Horse ) },
 
 			// FILE C
-			new Piece?[]{ new Piece() { color = Color.Red, name = PieceName.Elephant }, null, null, new Piece() { color = Color.Red, name = PieceName.Pawn }, null, null, new Piece() { color = Color.Blue, name = PieceName.Pawn }, null, null, new Piece() { color = Color.Blue, name = PieceName.Elephant } },
+			new Piece?[]{ new Piece( Color.Red,  PieceName.Elephant ), null, null, new Piece( Color.Red, PieceName.Pawn ), null, null, new Piece( Color.Blue,  PieceName.Pawn ), null, null, new Piece( Color.Blue, PieceName.Elephant ) },
 
 			// FILE D
-			new Piece?[]{ new Piece() { color = Color.Red, name = PieceName.Advisor }, null, null, null, null, null, null, null, null, new Piece() { color = Color.Blue, name = PieceName.Advisor } },
+			new Piece?[]{ new Piece(Color.Red,  PieceName.Advisor ), null, null, null, null, null, null, null, null, new Piece( Color.Blue, PieceName.Advisor )},
 
 			// FILE E
-			new Piece?[]{ new Piece() { color = Color.Red, name = PieceName.General }, null, null, new Piece() { color = Color.Red, name = PieceName.Pawn }, null, null, new Piece() { color = Color.Blue, name = PieceName.Pawn }, null, null, new Piece() { color = Color.Blue, name = PieceName.General } },
+			new Piece?[]{ new Piece( Color.Red,  PieceName.General ), null, null, new Piece(Color.Red,  PieceName.Pawn ), null, null, new Piece( Color.Blue,  PieceName.Pawn ), null, null, new Piece( Color.Blue, PieceName.General )},
 
 			// FILE F
-			new Piece?[]{ new Piece() { color = Color.Red, name = PieceName.Advisor }, null, null, null, null, null, null, null, null, new Piece() { color = Color.Blue, name = PieceName.Advisor } },
+			new Piece?[]{ new Piece( Color.Red,  PieceName.Advisor ), null, null, null, null, null, null, null, null, new Piece( Color.Blue,  PieceName.Advisor ) },
 
 			// FILE G
-			new Piece?[]{ new Piece() { color = Color.Red, name = PieceName.Elephant }, null, null, new Piece() { color = Color.Red, name = PieceName.Pawn }, null, null, new Piece() { color = Color.Blue, name = PieceName.Pawn }, null, null, new Piece() { color = Color.Blue, name = PieceName.Elephant } },
+			new Piece?[]{ new Piece( Color.Red, PieceName.Elephant ), null, null, new Piece( Color.Red,  PieceName.Pawn ), null, null, new Piece(Color.Blue, PieceName.Pawn ), null, null, new Piece( Color.Blue, PieceName.Elephant ) },
 
 			// FILE H
-			new Piece?[]{ new Piece() { color = Color.Red, name = PieceName.Horse }, null, new Piece() { color = Color.Red, name = PieceName.Cannon }, null, null, null, null, new Piece() { color = Color.Blue, name = PieceName.Cannon }, null, new Piece() { color = Color.Blue, name = PieceName.Horse } },
+			new Piece?[]{ new Piece( Color.Red, PieceName.Horse ), null, new Piece( Color.Red,  PieceName.Cannon ), null, null, null, null, new Piece( Color.Blue, PieceName.Cannon ), null, new Piece( Color.Blue,  PieceName.Horse ) },
 
 			// FILE I
-			new Piece?[]{new Piece(){color=Color.Red, name=PieceName.Rook},null, null, new Piece(){color=Color.Red, name=PieceName.Pawn}, null, null, new Piece(){color=Color.Blue, name=PieceName.Pawn}, null, null, new Piece(){color=Color.Blue, name=PieceName.Rook} },
+			new Piece?[]{new Piece(Color.Red, PieceName.Rook),null, null, new Piece( Color.Red, PieceName.Pawn), null, null, new Piece( Color.Blue, PieceName.Pawn), null, null, new Piece( Color.Blue, PieceName.Rook) },
 		};
 
 		/// <summary>
@@ -104,10 +94,10 @@ namespace Chess.ChineseChess
 				for (int y = 0; y < 10; ++y)
 				{
 					if (mailBox[x][y] == null) continue;
-					var square = mailBox[x][y].Value;
-					this.mailBox[x][y] = new Piece() { color = square.color, name = square.name, hidden = hidden != null ? hidden.Value : square.hidden };
-					if (square.hidden) hiddenChessRule = true;
-					if (square.name == PieceName.General) generalIndexes[(int)square.color] = (x, y);
+					var piece = mailBox[x][y].Value;
+					this.mailBox[x][y] = new Piece(piece.color, piece.name, hidden != null ? hidden.Value : piece.hidden);
+					if (piece.hidden) hiddenChessRule = true;
+					if (piece.name == PieceName.General) generalIndexes[(int)piece.color] = (x, y);
 				}
 			}
 			if (hidden == true) hiddenChessRule = true;
@@ -217,11 +207,11 @@ namespace Chess.ChineseChess
 		private static readonly Rect[] SIDES = new Rect[]
 		{
 			new Rect(0, 0, 8, 4),	// Color.Red
-			new Rect(0, 5, 8, 9)	// Color.Blue
+			new Rect(0, 5, 8, 9)    // Color.Blue
 		}, PALACES = new Rect[]
 		{
 			new Rect(3, 0, 5, 2),	// Color.Red
-			new Rect(3, 7, 5, 9)	// Color.Blue
+			new Rect(3, 7, 5, 9)    // Color.Blue
 		};
 		private static readonly (int x, int y)[] LRUD_VECTORS = new (int x, int y)[]
 		{
@@ -236,19 +226,23 @@ namespace Chess.ChineseChess
 			(line: (-1, 0), crosses: new (int x, int y)[]{(-1, 1), (-1, -1)}),	// L
 			(line: (1, 0), crosses: new (int x, int y)[]{(1, 1), (1, -1)}),		// R
 			(line: (0, 1), crosses: new (int x, int y)[]{(-1, 1), (1, 1)}),		// U
-			(line: (0, -1), crosses: new (int x, int y)[]{(-1, -1), (1, -1)})	// D
+			(line: (0, -1), crosses: new (int x, int y)[]{(-1, -1), (1, -1)})   // D
 		};
 		private static readonly (int x, int y)[] COLOR_FORWARD_VECTORS = new (int x, int y)[]
 		{
 			(0, 1),	// Color.Red
-			(0, -1)	// Color.Blue
+			(0, -1) // Color.Blue
 		};
+		private static readonly List<(int x, int y)> pseudoList = new List<(int x, int y)>(90);
 
 
 		private (int x, int y)[] FindPseudoLegalMoves(Color color, PieceName name, (int x, int y) index)
 		{
-			list.Clear();
+			var THIS_SIDE = SIDES[(int)color];
+			var THIS_PALACE = PALACES[(int)color];
+			pseudoList.Clear();
 			int x, y;
+
 			switch (name)
 			{
 				case PieceName.General:
@@ -256,7 +250,7 @@ namespace Chess.ChineseChess
 					for (int d = 0; d < 4; ++d)
 					{
 						x = index.x + LRUD_VECTORS[d].x; y = index.y + LRUD_VECTORS[d].y;
-						if (PALACES[(int)color].Contains(x, y) && mailBox[x][y]?.color != color) list.Add((x, y));
+						if (THIS_PALACE.Contains(x, y) && mailBox[x][y]?.color != color) pseudoList.Add((x, y));
 					}
 					break;
 				#endregion
@@ -266,9 +260,9 @@ namespace Chess.ChineseChess
 					for (int d = 0; d < 4; ++d)
 					{
 						x = index.x + CROSS_VECTORS[d].x; y = index.y + CROSS_VECTORS[d].y;
-						if (((!hiddenChessRule && PALACES[(int)color].Contains(x, y))
+						if (((!hiddenChessRule && THIS_PALACE.Contains(x, y))
 							|| (hiddenChessRule && BOARD.Contains(x, y)))
-							&& mailBox[x][y]?.color != color) list.Add((x, y));
+							&& mailBox[x][y]?.color != color) pseudoList.Add((x, y));
 					}
 					break;
 				#endregion
@@ -279,14 +273,14 @@ namespace Chess.ChineseChess
 					{
 						var dir = CROSS_VECTORS[d];
 						x = index.x + dir.x; y = index.y + dir.y;
-						if ((!hiddenChessRule && !SIDES[(int)color].Contains(x, y))
+						if ((!hiddenChessRule && !THIS_SIDE.Contains(x, y))
 							|| (hiddenChessRule && !BOARD.Contains(x, y))
 							|| mailBox[x][y] != null) continue;
 
 						x += dir.x; y += dir.y;
-						if (((!hiddenChessRule && SIDES[(int)color].Contains(x, y))
+						if (((!hiddenChessRule && THIS_SIDE.Contains(x, y))
 							|| (hiddenChessRule && BOARD.Contains(x, y)))
-							&& mailBox[x][y]?.color != color) list.Add((x, y));
+							&& mailBox[x][y]?.color != color) pseudoList.Add((x, y));
 					}
 					break;
 				#endregion
@@ -301,8 +295,8 @@ namespace Chess.ChineseChess
 
 						for (int c = 0; c < 2; ++c)
 						{
-							x += crosses[c].x; y += crosses[c].y;
-							if (BOARD.Contains(x, y) && mailBox[x][y]?.color != color) list.Add((x, y));
+							int cx = x + crosses[c].x, cy = y + crosses[c].y;
+							if (BOARD.Contains(cx, cy) && mailBox[cx][cy]?.color != color) pseudoList.Add((cx, cy));
 						}
 					}
 					break;
@@ -317,7 +311,7 @@ namespace Chess.ChineseChess
 						while (BOARD.Contains(x += dir.x, y += dir.y))
 						{
 							var c = mailBox[x][y]?.color;
-							if (c != color) list.Add((x, y));
+							if (c != color) pseudoList.Add((x, y));
 							if (c != null) break;
 						}
 					}
@@ -335,7 +329,7 @@ namespace Chess.ChineseChess
 							var c = mailBox[x][y]?.color;
 							if (c == null)
 							{
-								list.Add((x, y)); continue;
+								pseudoList.Add((x, y)); continue;
 							}
 
 							while (BOARD.Contains(x += dir.x, y += dir.y))
@@ -343,7 +337,7 @@ namespace Chess.ChineseChess
 								var c2 = mailBox[x][y]?.color;
 								if (c2 == null) continue;
 
-								if (c2 != color) list.Add((x, y));
+								if (c2 != color) pseudoList.Add((x, y));
 								break;
 							}
 							break;
@@ -356,37 +350,39 @@ namespace Chess.ChineseChess
 					#region Pawn
 					var forward = COLOR_FORWARD_VECTORS[(int)color];
 					x = index.x + forward.x; y = index.y + forward.y;
-					if (BOARD.Contains(x, y) && mailBox[x][y]?.color != color) list.Add((x, y));
-					if (SIDES[(int)color].Contains(x, y)) break;
+					if (BOARD.Contains(x, y) && mailBox[x][y]?.color != color) pseudoList.Add((x, y));
+					if (THIS_SIDE.Contains(index)) break;
 					for (int d = 0; d < 2; ++d)
 					{
 						x = index.x + LRUD_VECTORS[d].x; y = index.y + LRUD_VECTORS[d].y;
-						if (BOARD.Contains(x, y) && mailBox[x][y]?.color != color) list.Add((x, y));
+						if (BOARD.Contains(x, y) && mailBox[x][y]?.color != color) pseudoList.Add((x, y));
 					}
 					break;
 					#endregion
 			}
-			return list.ToArray();
+			return pseudoList.ToArray();
 		}
 		#endregion
 
 
 		#region FindLegalMoves
+		private static readonly List<(int x, int y)> legalList = new List<(int x, int y)>(90);
+
 		private (int x, int y)[] FindLegalMoves(Color color, PieceName name, (int x, int y) index)
 		{
 			var moves = FindPseudoLegalMoves(color, name, index);
 			if (moves.Length == 0) return Array.Empty<(int x, int y)>();
 
-			list.Clear();
+			legalList.Clear();
 			for (int m = 0; m < moves.Length; ++m)
 			{
 				var to = moves[m];
 				var data = GenerateMoveData(index, to);
 				PseudoMove(data, isUndo: false);
-				if (!GeneralIsChecked(color)) list.Add(to);
+				if (!GeneralIsChecked(color)) legalList.Add(to);
 				PseudoMove(data, isUndo: true);
 			}
-			return list.ToArray();
+			return legalList.ToArray();
 		}
 
 
@@ -413,9 +409,13 @@ namespace Chess.ChineseChess
 				this.to = to;
 				this.capturedPiece = capturedPiece;
 			}
+
+
+			public override string ToString() => $"(piece= {piece}, from= {from}, to= {to}, capturedPiece= {capturedPiece})";
 		}
 
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public MoveData GenerateMoveData((int x, int y) from, (int x, int y) to) =>
 			 new MoveData(mailBox[from.x][from.y].Value, from, to, mailBox[to.x][to.y]);
 
@@ -425,29 +425,48 @@ namespace Chess.ChineseChess
 			PseudoMove(data, isUndo);
 
 			#region Cập nhật State
-			var oldState = states[(int)data.piece.color];
-			states[(int)data.piece.color] = State.Normal;
-			if (oldState == State.Check) onStateChanged?.Invoke(data.piece.color, State.Normal);
-
 			var opponentColor = data.piece.color == Color.Red ? Color.Blue : Color.Red;
-			if (GeneralIsChecked(opponentColor))
+			if (!isUndo)
 			{
-				for (int x = 0; x < 9; ++x)
-					for (int y = 0; y < 10; ++y)
-						if (mailBox[x][y]?.color == opponentColor)
-						{
-							var piece = mailBox[x][y].Value;
-							if (FindLegalMoves(opponentColor, !piece.hidden ? piece.name : DEFAULT_MAILBOX[x][y].Value.name, (x, y)).Length != 0)
-							{
-								states[(int)opponentColor] = State.Check;
-								onStateChanged?.Invoke(opponentColor, State.Check);
-								goto END;
-							}
-						}
+				#region DO
+				var oldState = states[(int)data.piece.color];
+				states[(int)data.piece.color] = State.Normal;
+				if (oldState == State.Check) onStateChanged?.Invoke(data.piece.color, State.Normal);
 
-				states[(int)opponentColor] = State.CheckMate;
-				onStateChanged?.Invoke(opponentColor, State.CheckMate);
-			END:;
+				if (GeneralIsChecked(opponentColor))
+				{
+					for (int x = 0; x < 9; ++x)
+						for (int y = 0; y < 10; ++y)
+							if (mailBox[x][y]?.color == opponentColor)
+							{
+								var piece = mailBox[x][y].Value;
+								if (FindLegalMoves(opponentColor, !piece.hidden ? piece.name : DEFAULT_MAILBOX[x][y].Value.name, (x, y)).Length != 0)
+								{
+									states[(int)opponentColor] = State.Check;
+									onStateChanged?.Invoke(opponentColor, State.Check);
+									goto END;
+								}
+							}
+
+					states[(int)opponentColor] = State.CheckMate;
+					onStateChanged?.Invoke(opponentColor, State.CheckMate);
+				END:;
+				}
+				#endregion
+			}
+			else
+			{
+				#region UNDO
+				var oldState = states[(int)opponentColor];
+				states[(int)opponentColor] = State.Normal;
+				if (oldState != State.Normal) onStateChanged?.Invoke(opponentColor, State.Normal);
+
+				if (GeneralIsChecked(data.piece.color))
+				{
+					states[(int)data.piece.color] = State.Check;
+					onStateChanged?.Invoke(data.piece.color, State.Check);
+				}
+				#endregion
 			}
 			#endregion
 		}
@@ -459,9 +478,7 @@ namespace Chess.ChineseChess
 			{
 				#region DO
 				mailBox[data.from.x][data.from.y] = null;
-				var p = data.piece;
-				p.hidden = false;
-				mailBox[data.to.x][data.to.y] = p;
+				mailBox[data.to.x][data.to.y] = new Piece(data.piece.color, data.piece.name);
 				if (data.piece.name == PieceName.General)
 					generalIndexes[(int)data.piece.color] = data.to;
 				#endregion
@@ -478,8 +495,6 @@ namespace Chess.ChineseChess
 		}
 		#endregion
 
-
-		private static readonly List<(int x, int y)> list = new List<(int x, int y)>(90);
 
 		private readonly (int x, int y)[] generalIndexes = new (int x, int y)[2];
 
@@ -523,8 +538,7 @@ namespace Chess.ChineseChess
 						var piece = mailBox[x][y].Value;
 						if (piece.name == PieceName.General) continue;
 						var moves = FindPseudoLegalMoves(opponentColor, !piece.hidden ? piece.name : DEFAULT_MAILBOX[x][y].Value.name, (x, y));
-						for (int m = 0; m < moves.Length; ++m)
-							if (moves[m] == G) return true;
+						if (moves.Contains(G)) return true;
 					}
 			return false;
 		}

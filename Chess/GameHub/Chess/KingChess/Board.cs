@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
 
 
-namespace Chess.KingChess
+namespace GameHub.Chess.KingChess
 {
 	public enum PieceName
 	{
@@ -615,25 +615,46 @@ namespace Chess.KingChess
 		{
 			PseudoMove(data, isUndo);
 
-			#region Cập nhật state
-			var oldState = state[(int)data.color];
-			state[(int)data.color] = State.Normal;
-			if (oldState == State.Check) onStateChanged?.Invoke(data.color, State.Normal);
-
+			#region Cập nhật State
 			var opponentColor = data.color == Color.White ? Color.Black : Color.White;
-			if (KingIsChecked(opponentColor))
+			if (!isUndo)
 			{
-				for (int p = 0; p < 6; ++p)
-					if (FindLegalMoves(opponentColor, (PieceName)p, null).Length != 0)
+				#region DO
+				var oldState = states[(int)data.color];
+				states[(int)data.color] = State.Normal;
+				if (oldState == State.Check) onStateChanged?.Invoke(data.color, State.Normal);
+
+				if (KingIsChecked(opponentColor))
+				{
+					for (int p = 0; p < 6; ++p)
 					{
-						state[(int)opponentColor] = State.Check;
-						onStateChanged?.Invoke(opponentColor, State.Check);
-						goto END;
+						if (FindLegalMoves(opponentColor, (PieceName)p, null).Length != 0)
+						{
+							states[(int)opponentColor] = State.Check;
+							onStateChanged?.Invoke(opponentColor, State.Check);
+							goto END;
+						}
 					}
 
-				state[(int)opponentColor] = State.CheckMate;
-				onStateChanged?.Invoke(opponentColor, State.CheckMate);
-			END:;
+					states[(int)opponentColor] = State.CheckMate;
+					onStateChanged?.Invoke(opponentColor, State.CheckMate);
+				END:;
+				}
+				#endregion
+			}
+			else
+			{
+				#region UNDO
+				var oldState = states[(int)opponentColor];
+				states[(int)opponentColor] = State.Normal;
+				if (oldState != State.Normal) onStateChanged?.Invoke(opponentColor, State.Normal);
+
+				if (KingIsChecked(data.color))
+				{
+					states[(int)data.color] = State.Check;
+					onStateChanged?.Invoke(data.color, State.Check);
+				}
+				#endregion
 			}
 			#endregion
 
@@ -791,12 +812,12 @@ namespace Chess.KingChess
 		/// <summary>
 		/// <c>state[(<see cref="int"/>)<see cref="Color"/>] == state</c>
 		/// </summary>
-		private readonly State[] state = new State[2];
+		private readonly State[] states = new State[2];
 		public event Action<Color, State> onStateChanged;
 
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public State GetState(Color color) => state[(int)color];
+		public State GetState(Color color) => states[(int)color];
 
 
 		///<summary>
